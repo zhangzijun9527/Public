@@ -1,24 +1,17 @@
-# 🚗 二手车 AI 智能评估与检索系统 (Used Car AI RAG Platform)
+# 🚀 My AI Application Development Portfolio
 
-这是一个基于真实二手车脏数据构建的**全栈式 AI 应用**。项目打通了从数据清洗、关系型数据库存储、向量语义检索、大模型生成到前端可视化交互的完整数据闭环。
+这里记录了我在大二阶段学习并实战的 AI 应用开发项目。基于 `Python + FastAPI + LLM API + ChromaDB` 构建。
 
-## 📸 产品展示 (UI Demo)
-![Gradio 前端界面](ui_demo.png)
+## 📂 项目目录
 
-## 🏗️ 核心架构 (Architecture)
-1. **数据清洗层**：使用 `Pandas` 对原始 CSV 进行异常值处理与缺失值填充，持久化至 `MySQL`。
-2. **向量检索层**：引入 `ChromaDB` 与 `BAAI/bge-small-zh-v1.5` 模型，实现精准语义检索。
-3. **后端服务层**：基于 `FastAPI` 提供 RESTful API。
-4. **大模型生成层**：接入 `DeepSeek API`，结合 RAG 架构解决大模型幻觉；同时实现 **Text-to-SQL** 自然语言查库。
-5. **前端交互层**：使用 `Gradio` 搭建极简聊天界面，支持参考来源溯源。
+### 1. [📚 智能 PDF 论文阅读助手 (SmartPDF RAG)](./02_smart_pdf_project)
+- **简介**: 基于 RAG 架构的长文本解析工具。支持上传 PDF、正则清洗、滑动窗口切块、向量化检索与大模型精准总结。
+- **核心技术**: `PyMuPDF`, `ChromaDB`, `BAAI/bge-small-zh`, `FastAPI`, `Gradio`。
+- **详情请点击文件夹查看**。
 
-## 🛠️ 技术栈 (Tech Stack)
-- **语言**: Python 3.13
-- **数据处理**: Pandas, NumPy, MySQL
-- **AI / RAG**: DeepSeek API, ChromaDB, Sentence-Transformers
-- **Web 框架**: FastAPI, Uvicorn, Gradio
+### 2. [🚗 二手车数据大模型平台 (Used Car AI)](./01_used_car_project)
+- **简介**: 融合数据清洗、数据库存储与 Text-to-SQL 的智能数据问答系统。
+- **核心技术**: `Pandas`, `MySQL`, `FastAPI`, `DeepSeek API`。
 
-## 🧠 项目亮点 (Highlights)
-- **双引擎检索**：支持文本语义检索（RAG）与结构化精准查库（Text-to-SQL）。
-- **防幻觉机制**：强制大模型仅根据检索到的上下文回答。
-- **安全规范**：使用 `.env` 环境变量隔离数据库密码与 API Key。
+## 🛠️ 全局技术栈
+Python, FastAPI, Uvicorn, ChromaDB, Sentence-Transformers, OpenAI SDK, Gradio, MySQL, Pandas, Docker (学习中)
