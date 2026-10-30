@@ -40,7 +40,7 @@ class AskRequest(BaseModel):
 # ================= 接口一：一键解析并入库 =================
 @app.get("/api/pdf/rebuild_db")
 def rebuild_db():
-    pdf_path = current_dir / "text.pdf"
+    pdf_path = current_dir / "test.pdf"
     if not pdf_path.exists():
         return {"status": "error", "message": "找不到 test.pdf，请确保它和代码在同一个文件夹！"}
 
@@ -55,7 +55,13 @@ def rebuild_db():
         # 1. 先把换行符和多余空格清理掉
         text = re.sub(r'\s+', ' ', full_text)
 
-        # 2. 🌟 关键：加上这行，把那些恶心的 "Just Accepted" 废话全删掉！
+        #  清空旧数据
+        existing_data = collection.get()
+        if existing_data['ids']:
+            collection.delete(ids=existing_data['ids'])
+            print('清理完毕')
+
+        # 2.  关键：加上这行，把那些恶心的 "Just Accepted" 废话全删掉！
         # 注意：这里用 replace 简单粗暴地删掉常见的废话词组，比正则更不容易出错
         text = text.replace("“Just Accepted” manuscripts have been peer-reviewed and accepted for publication.", "")
         text = text.replace(
@@ -100,7 +106,8 @@ def ask_pdf(request: AskRequest):
 
         response = client.chat.completions.create(
             model='deepseek-chat',
-            messages=[{'role': 'system', 'content': prompt}, {'role': 'user', 'content': request.question}]
+            messages=[{'role': 'system', 'content': prompt},
+                      {'role': 'user', 'content': request.question}]
         )
 
         return {
