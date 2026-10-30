@@ -41,6 +41,7 @@ class AskRequest(BaseModel):
 @app.get("/api/pdf/rebuild_db")
 def rebuild_db():
     pdf_path = current_dir / "test.pdf"
+    print(f'正在查找:{pdf_path.absolute()}')
     if not pdf_path.exists():
         return {"status": "error", "message": "找不到 test.pdf，请确保它和代码在同一个文件夹！"}
 
@@ -118,4 +119,4 @@ def ask_pdf(request: AskRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-# uvicorn python_learning.pdf_api:app --port 8005 --reload
+# uvicorn AI_app_Projects.smart_pdf_project.pdf_api:app --port 8010

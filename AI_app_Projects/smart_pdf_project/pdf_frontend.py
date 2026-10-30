@@ -4,7 +4,7 @@ import shutil
 from pathlib import Path
 import os
 
-BACKEND_URL = 'http://127.0.0.1:8005'
+BACKEND_URL = 'http://127.0.0.1:8010'
 current_dir = Path(__file__).parent
 
 def upload_and_process(file):

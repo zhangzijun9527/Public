@@ -88,4 +88,4 @@ def ask_pdf(question):
 
 if __name__ == '__main__':
     process_pdf_to_db()
-    ask_pdf('这篇论文说的什么?')
+

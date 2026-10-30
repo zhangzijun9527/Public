@@ -160,8 +160,8 @@ def smart_search(request: AskRequest):
 
 
 
-# uvicorn python_learning.main:app --reload
-# uvicorn python_learning.main:app --port 8001
+# uvicorn AI_app_Projects.main:app --reload
+# uvicorn AI_app_Projects.main:app --port 8001
 
 
 

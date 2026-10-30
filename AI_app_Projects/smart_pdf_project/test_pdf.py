@@ -2,7 +2,7 @@ import pymupdf as fitz
 import re
 
 def extract_and_clean_v2():
-    pdf_path = '../smart_pdf_project/test.pdf'
+    pdf_path = 'test.pdf'
     doc = fitz.open(pdf_path)
     full_text = ''
 
