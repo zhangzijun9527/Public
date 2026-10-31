@@ -6,7 +6,7 @@
 
 *(将你刚才那张 7860 端口的网页截图命名为 `ui_demo.png`，放在当前文件夹，替换下面的名字)*
 
-![产品界面](https://github.com/zhangzijun9527/Public/blob/main/001.png)
+![产品界面](001.png)
 
 ## 🏗️ 核心架构与工作流 (Architecture)
 

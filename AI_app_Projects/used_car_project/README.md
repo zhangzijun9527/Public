@@ -3,7 +3,7 @@
 这是一个基于真实二手车脏数据构建的**全栈式 AI 应用**。项目打通了从数据清洗、关系型数据库存储、向量语义检索、大模型生成到前端可视化交互的完整数据闭环。
 
 ## 📸 产品展示 (UI Demo)
-![Gradio 前端界面](https://github.com/zhangzijun9527/pyhton-learning/blob/main/ui_demo.png?raw=true))
+![Gradio 前端界面](ui_demo.png)
 
 ## 🏗️ 核心架构 (Architecture)
 1. **数据清洗层**：使用 `Pandas` 对原始二手车 CSV 进行异常值处理与缺失值填充，并将干净数据持久化至 `MySQL`。
