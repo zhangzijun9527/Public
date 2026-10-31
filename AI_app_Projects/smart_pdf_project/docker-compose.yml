@@ -1,0 +1,25 @@
+services:
+  backend:
+    build: .
+    container_name: pdf_backend
+    ports:
+      - "8010:8010"
+    volumes:
+      - ./chroma_db:/app/chroma_db
+      - ./test.pdf:/app/test.pdf
+    environment:
+      - TZ=Asia/Shanghai
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY}
+      - BAILIAN_API_KEY=${BAILIAN_API_KEY}
+
+  frontend:
+    build: .
+    container_name: pdf_frontend
+    ports:
+      - "7860:7860"
+    command: python pdf_frontend.py
+    depends_on:
+      - backend
+    environment:
+      - TZ=Asia/Shanghai
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY}

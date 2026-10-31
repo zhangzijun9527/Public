@@ -1,35 +1,63 @@
 import os
-from pathlib import Path
-
-os.environ['HF_ENDPOINT'] = 'https://hf-mirror.com'
-os.environ['HTTP_PROXY'] = ''
-os.environ['HTTPS_PROXY'] = ''
-os.environ['NO_PROXY'] = 'api.deepseek.com,localhost,127.0.0.1,hf-mirror.com'
-
 import re
+import requests
 import pymupdf as fitz
 import chromadb
-from fastapi import FastAPI, HTTPException
+from pathlib import Path
+from fastapi import FastAPI, HTTPException, File, UploadFile
 from pydantic import BaseModel
-from sentence_transformers import SentenceTransformer
-from openai import OpenAI
 from dotenv import load_dotenv
 
-#  初始化环境
+# ================= 1. 环境变量配置 =================
+load_dotenv()
+
+DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY")
+BAILIAN_API_KEY = os.getenv("BAILIAN_API_KEY")  # 你的阿里云百炼 Key
+
+if not DEEPSEEK_API_KEY or not BAILIAN_API_KEY:
+    raise ValueError("❌ 缺少 API Key，请检查 .env 文件中的 DEEPSEEK_API_KEY 和 BAILIAN_API_KEY")
+
+# 阿里云百炼 Embedding 配置
+EMBEDDING_URL = "https://dashscope.aliyuncs.com/compatible-mode/v1/embeddings"
+EMBEDDING_MODEL_NAME = "text-embedding-v3"
+
+
+def get_embeddings(texts):
+    """调用阿里云百炼 API 获取向量（自带分批，防止超出限制）"""
+    headers = {
+        "Authorization": f"Bearer {BAILIAN_API_KEY}",
+        "Content-Type": "application/json"
+    }
+
+    all_embeddings = []
+    batch_size = 10  # 阿里云限制单次输入不能太多
+
+    for i in range(0, len(texts), batch_size):
+        batch_texts = texts[i:i + batch_size]
+        payload = {
+            "model": EMBEDDING_MODEL_NAME,
+            "input": batch_texts
+        }
+        try:
+            response = requests.post(EMBEDDING_URL, headers=headers, json=payload, timeout=30)
+            response.raise_for_status()
+            data = response.json()
+            for item in data["data"]:
+                all_embeddings.append(item["embedding"])
+        except Exception as e:
+            print(f"❌ 调用 Embedding API 失败: {e}")
+            raise e
+
+    return all_embeddings
+
+
+# ================= 2. 向量库初始化 =================
+print("⏳ 正在初始化向量数据库...")
 current_dir = Path(__file__).parent
-load_dotenv(dotenv_path=current_dir / '.env')
-deepseek_key = os.getenv("DEEPSEEK_API_KEY")
-
-client = OpenAI(api_key=deepseek_key, base_url="https://api.deepseek.com/v1", max_retries=3, timeout=30.0)
-
-print(" 正在加载向量模型...")
-embed_model = SentenceTransformer('BAAI/bge-small-zh-v1.5')
-
 db_path = current_dir / 'chroma_db'
 chroma_client = chromadb.PersistentClient(path=str(db_path))
 collection = chroma_client.get_or_create_collection(name="pdf_knowledge")
 
-print(f"服务初始化完毕！当前向量库数据量: {collection.count()} 条")
 app = FastAPI(title='智能PDF论文理解助手')
 
 
@@ -37,86 +65,102 @@ class AskRequest(BaseModel):
     question: str
 
 
-# ================= 接口一：一键解析并入库 =================
-@app.get("/api/pdf/rebuild_db")
-def rebuild_db():
-    pdf_path = current_dir / "test.pdf"
-    print(f'正在查找:{pdf_path.absolute()}')
-    if not pdf_path.exists():
-        return {"status": "error", "message": "找不到 test.pdf，请确保它和代码在同一个文件夹！"}
-
-    print(f"开始读取并解析: {pdf_path}")
+# ================= 3. 核心接口 1：上传解析 =================
+@app.post("/api/pdf/upload_and_rebuild")
+async def upload_and_rebuild(file: UploadFile = File(...)):
     try:
-        doc = fitz.open(pdf_path)
-        full_text = ""
-        for page in doc:
-            full_text += page.get_text("text") + "\n"
+        content = await file.read()
+        doc = fitz.open(stream=content, filetype="pdf")
+        full_text = "".join([page.get_text("text") + "\n" for page in doc])
         doc.close()
 
-        # 1. 先把换行符和多余空格清理掉
+        # 清理多余空白字符
         text = re.sub(r'\s+', ' ', full_text)
 
-        #  清空旧数据
-        existing_data = collection.get()
-        if existing_data['ids']:
-            collection.delete(ids=existing_data['ids'])
-            print('清理完毕')
-
-        # 2.  关键：加上这行，把那些恶心的 "Just Accepted" 废话全删掉！
-        # 注意：这里用 replace 简单粗暴地删掉常见的废话词组，比正则更不容易出错
-        text = text.replace("“Just Accepted” manuscripts have been peer-reviewed and accepted for publication.", "")
-        text = text.replace(
-            "“Just Accepted” manuscripts have been fully peer reviewed, but should not be considered the official version of record.",
-            "")
-
-        # 3. 开始固定字数切片
+        # 文本切片
         chunk_size = 500
         overlap = 50
         chunks = []
         start = 0
         while start < len(text):
             end = start + chunk_size
-            chunks.append(text[start:end])
+            chunk_text = text[start:end]
+            if chunk_text.strip():  # 过滤空数据
+                chunks.append(chunk_text)
             start += chunk_size - overlap
 
-        # 4. 向量化并入库
-        print(f"正在向量化并存入 {len(chunks)} 个片段...")
-        embeddings = embed_model.encode(chunks).tolist()
+        if not chunks:
+            return {"status": "error", "message": "未能从 PDF 中提取到有效文本。"}
+
+        # 删除旧数据
+        existing_data = collection.get()
+        if existing_data['ids']:
+            collection.delete(ids=existing_data['ids'])
+
+        # 获取向量并入库
+        embeddings = get_embeddings(chunks)
         ids = [f"pdf_chunk_{i}" for i in range(len(chunks))]
 
-        collection.add(documents=chunks, embeddings=embeddings, ids=ids)
+        collection.add(
+            documents=chunks,
+            embeddings=embeddings,
+            ids=ids
+        )
 
         return {"status": "success", "message": f"🎉 成功入库！当前库中共有 {collection.count()} 条数据！"}
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         return {"status": "error", "message": f"解析失败: {str(e)}"}
 
 
-# ================= 接口二：智能问答 =================
+# ================= 4. 核心接口 2：智能问答 =================
 @app.post('/api/pdf/ask')
 def ask_pdf(request: AskRequest):
     try:
-        query_embeddings = embed_model.encode([request.question]).tolist()
-        results = collection.query(query_embeddings=query_embeddings, n_results=6)
+        # 1. 问题向量化
+        query_embeddings = get_embeddings([request.question])
 
-        if not results['documents'] or len(results['documents'][0]) == 0:
-            return {"status": "error", "reply": "库里没数据，请先调 rebuild_db！"}
-
-        context = '\n'.join(results['documents'][0])
-
-        prompt = f"你是一个专业的学术助手。请根据以下资料回答：\n\n{context}"
-
-        response = client.chat.completions.create(
-            model='deepseek-chat',
-            messages=[{'role': 'system', 'content': prompt},
-                      {'role': 'user', 'content': request.question}]
+        # 2. 检索最相关的 4 个片段
+        results = collection.query(
+            query_embeddings=query_embeddings,
+            n_results=4
         )
 
-        return {
-            'status': 'success',
-            'reply': response.choices[0].message.content,
-            'source_docs': results['documents'][0]
+        # 3. 防弹处理：过滤掉空数据
+        if not results['documents'] or not results['documents'][0]:
+            return {"status": "error", "reply": "库里没数据，请先上传 PDF！"}
+
+        valid_docs = [doc for doc in results['documents'][0] if doc is not None]
+        if not valid_docs:
+            return {"status": "success", "reply": "这篇论文中没有找到相关内容。"}
+
+        # 4. 拼接上下文
+        context = '\n'.join(valid_docs)
+
+        # 5. 调用 DeepSeek 生成回答
+        url = "https://api.deepseek.com/v1/chat/completions"
+        headers = {
+            "Authorization": f"Bearer {DEEPSEEK_API_KEY}",
+            "Content-Type": "application/json"
         }
+        payload = {
+            "model": "deepseek-chat",
+            "messages": [
+                {"role": "system", "content": f"你是一个专业的学术助手。请根据以下资料回答：\n\n{context}"},
+                {"role": "user", "content": request.question}
+            ]
+        }
+
+        response = requests.post(url, headers=headers, json=payload, timeout=60)
+        response.raise_for_status()
+
+        answer = response.json()['choices'][0]['message']['content']
+        return {'status': 'success', 'reply': answer}
+
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
 
 # uvicorn AI_app_Projects.smart_pdf_project.pdf_api:app --port 8010

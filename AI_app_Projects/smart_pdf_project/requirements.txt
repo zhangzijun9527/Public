@@ -1,0 +1,9 @@
+fastapi
+uvicorn
+pymupdf
+chromadb
+sentence-transformers
+openai
+python-dotenv
+gradio
+requests
