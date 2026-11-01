@@ -1,25 +1,29 @@
+version: '3.8'
+
 services:
   backend:
-    build: .
+    build: .  # 使用当前目录的 Dockerfile 构建
     container_name: pdf_backend
     ports:
       - "8010:8010"
     volumes:
+      # 挂载数据库文件，保证重启容器不丢失向量数据
       - ./chroma_db:/app/chroma_db
-      - ./test.pdf:/app/test.pdf
     environment:
       - TZ=Asia/Shanghai
       - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY}
       - BAILIAN_API_KEY=${BAILIAN_API_KEY}
+    # 启动 FastAPI 后端
+    command: uvicorn pdf_api:app --host 0.0.0.0 --port 8010
 
   frontend:
     build: .
     container_name: pdf_frontend
     ports:
       - "7860:7860"
-    command: python pdf_frontend.py
     depends_on:
-      - backend
+      - backend # 保证后端先启动
     environment:
       - TZ=Asia/Shanghai
-      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY}
+    # 启动 Gradio 前端
+    command: python pdf_frontend.py
